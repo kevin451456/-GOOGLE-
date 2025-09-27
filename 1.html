@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NIHS_CED_IWHC</title>
+    <!-- 載入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --color-neon-green: #00ff66;
+            --color-neon-blue: #00eaff;
+            --color-alarm-red: #ff0044;
+            --color-dark-bg: #000000;
+        }
+
+        body {
+            background-color: var(--color-dark-bg);
+            font-family: 'Inter', monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        #game-container {
+            width: 100%;
+            position: relative;
+            background-color: #000;
+            border: 2px solid var(--color-neon-blue);
+            box-shadow: 0 0 20px var(--color-neon-blue);
+            overflow: hidden;
+            border-radius: 12px;
+            min-height: 250px;
+            transition: border-color 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .level-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.3;
+            transition: opacity 0.5s ease;
+            z-index: 5;
+        }
+
+        .level-1-bg { background-image: url('https://cdn.pixabay.com/photo/2018/09/16/22/08/software-3682509_1280.jpg'); }
+        .level-2-bg { background-image: url('https://cdn.pixabay.com/photo/2017/07/01/19/48/background-2462431_1280.jpg'); }
+        .level-3-bg { background-image: url('https://cdn.pixabay.com/photo/2016/11/21/14/31/hacker-1845769_1280.jpg'); }
+
+        #matrix-rain {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+        }
+
+        .data-stream {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                90deg,
+                rgba(0, 234, 255, 0.1) 0px,
+                rgba(0, 234, 255, 0.1) 2px,
+                transparent 2px,
+                transparent 80px
+            );
+            opacity: 0.5;
+            z-index: 20;
+        }
+
+        #runway {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background-color: #111;
+            box-shadow: 0 0 15px var(--color-neon-green);
+            overflow: hidden;
+            display: flex;
+            z-index: 30;
+            transition: box-shadow 0.5s ease;
+        }
+
+        #binary-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            white-space: nowrap;
+            font-family: monospace;
+            font-size: 24px;
+            line-height: 40px;
+            color: var(--color-neon-green);
+            text-shadow: 0 0 5px var(--color-neon-green);
+            will-change: transform;
+            transition: color 0.5s ease, text-shadow 0.5s ease;
+        }
+
+        #hacker {
+            position: absolute;
+            bottom: 40px;
+            left: 50px;
+            width: 40px;
+            height: 50px;
+            background-image: url('002.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: transform 0.15s ease-out;
+            z-index: 100;
+            filter: drop-shadow(0 0 10px var(--color-neon-blue));
+        }
+
+        #hacker.ducking {
+            height: 30px;
+            transition: height 0.1s ease-out;
+        }
+
+        .obstacle {
+            position: absolute;
+            bottom: 40px;
+            z-index: 100;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: transform 0.3s ease;
+        }
+
+        .firewall {
+            width: 40px;
+            height: 50px;
+            background-image: url('00.jpg');
+            filter: drop-shadow(0 0 10px var(--color-alarm-red));
+        }
+
+        .virus {
+            width: 35px;
+            height: 35px;
+            background-image: url('');
+            filter: drop-shadow(0 0 10px var(--color-neon-green));
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.8; }
+            to { transform: scale(1.1); opacity: 1; }
+        }
+
+        #trace-level {
+            height: 8px;
+            width: 100%;
+            background-color: #333;
+            overflow: hidden;
+            border-radius: 0 0 10px 10px;
+            z-index: 200;
+        }
+
+        #trace-bar {
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, var(--color-neon-green) 0%, var(--color-alarm-red) 100%);
+            transition: width 0.3s ease-out;
+            box-shadow: 0 0 10px rgba(255, 0, 68, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="p-6 rounded-xl bg-gray-800 bg-opacity-90 w-[95vw] h-[95vh] max-w-[1600px] max-h-[800px] flex flex-col justify-between items-center mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-4" style="color:var(--color-neon-blue)">
+             駭進網站吧OWO 各位黑客們
+        </h1>
+
+        <div id="game-container" class="w-full flex-grow my-2">
+            <div id="level-background" class="level-bg level-1-bg"></div>
+            <div class="absolute top-0 left-0 right-0 z-20 flex justify-between p-2 text-white font-mono text-sm"
+                 style="background-color: rgba(0,0,0,0.5); z-index: 200;">
+                <span class="flex flex-col sm:flex-row sm:space-x-4">
+                    <span style="color:var(--color-neon-blue);" id="level-name">啟動中...</span>
+                    <span style="color:var(--color-neon-green);">
+                        解開的flag: <span id="score">0</span> / <span id="score-goal">50</span>
+                    </span>
+                </span>
+                <span style="color:var(--color-alarm-red);">追蹤等級 (Trace Level):</span>
+            </div>
+
+            <div id="trace-level" class="absolute top-10 left-0 right-0 z-20">
+                <div id="trace-bar"></div>
+            </div>
+
+            <canvas id="matrix-rain"></canvas>
+            <div class="data-stream"></div>
+            <div id="runway">
+                <div id="binary-strip"></div>
+            </div>
+            <div id="hacker"></div>
+        </div>
+
+        <div class="flex justify-center mt-4">
+            <button id="start-button"
+                    class="px-8 py-3 text-lg font-bold transition duration-300 rounded-lg
+                           bg-gray-700 hover:bg-gray-600 focus:outline-none focus:ring-4 focus:ring-offset-2"
+                    style="color:var(--color-neon-blue); border: 2px solid var(--color-neon-blue); box-shadow: 0 0 15px var(--color-neon-blue);">
+                開始爆破flag
+            </button>
+        </div>
+
+        <div id="message-box" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-[1000]">
+            <div class="p-8 rounded-xl text-center shadow-2xl transition duration-500" style="background-color: var(--color-dark-bg); border: 4px solid var(--color-alarm-red);">
+                <h2 class="text-3xl font-bold mb-4" style="color:var(--color-alarm-red);" id="message-title"></h2>
+                <p class="text-xl mb-6 text-white" id="message-content"></p>
+                <button id="message-action-button"
+                        class="px-6 py-2 text-lg font-semibold rounded-lg transition duration-300"
+                        style="background-color: var(--color-neon-blue); color: var(--color-dark-bg);">
+                    重新嘗試 (Retry)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const hacker = document.getElementById('hacker');
+        const startButton = document.getElementById('start-button');
+        const scoreDisplay = document.getElementById('score');
+        const scoreGoalDisplay = document.getElementById('score-goal');
+        const levelNameDisplay = document.getElementById('level-name');
+        const traceBar = document.getElementById('trace-bar');
+        const messageBox = document.getElementById('message-box');
+        const messageActionButton = document.getElementById('message-action-button');
+        const binaryStrip = document.getElementById('binary-strip');
+        const runway = document.getElementById('runway');
+        const runwayHeight = 40;
+
+        let isPlaying = false;
+        let isJumping = false;
+        let isDucking = false;
+        let score = 0;
+        let traceLevel = 0;
+        let gameSpeed = 0;
+        let visualSpeed = 3;
+        let spawnInterval = 0;
+        let lastSpawnTime = 0;
+        let gameLoopId;
+        let gravity = 0.6;
+        let velocityY = 0;
+        let binaryScrollPos = 0;
+        let binaryStripWidth = 0;
+
+        let currentLevel = 1;
+        const MAX_LEVEL = 3;
+        const JUMP_VELOCITY = 13;
+        const BASE_TRACE_DELTA = 0.01;
+
+        const LEVEL_SETTINGS = [
+            {
+                level: 1,
+                scoreGoal: 50,
+                initialSpeed: 6,
+                maxSpeed: 8,
+                spawnInterval: 1500,
+                minSpawnInterval: 1000,
+                traceDelta: BASE_TRACE_DELTA * 1.5,
+                themeColor: '#00ff66',
+                title: '初階解密 (Rookie Decrypt)',
+                failTitle: '那麼簡單，你還可以破不了 他會跟你提分手！',
+            },
+            {
+                level: 2,
+                scoreGoal: 100,
+                initialSpeed: 7,
+                maxSpeed: 9,
+                spawnInterval: 1200,
+                minSpawnInterval: 800,
+                traceDelta: BASE_TRACE_DELTA * 3.0,
+                themeColor: '#00eaff',
+                title: '中階爆破 (Intermediate Penetration)',
+                failTitle: '你失敗了 你也輸了這一段的感情QAQ',
+            },
+            {
+                level: 3,
+                scoreGoal: 150,
+                initialSpeed: 8,
+                maxSpeed: 10,
+                spawnInterval: 1000,
+                minSpawnInterval: 700,
+                traceDelta: BASE_TRACE_DELTA * 3.5,
+                themeColor: '#ff9900',
+                title: '高階逆向工程 (Advanced Reverse Engineering)',
+                failTitle: '你覺得她還會喜歡你嗎！',
+            }
+        ];
+
+        const rainCanvas = document.getElementById('matrix-rain');
+        const ctx = rainCanvas.getContext('2d');
+        let drops = [];
+        let columns = 0;
+        const charSet = '01';
+        const rainFontSize = 16;
+        const rainSpeed = 50;
+        let rainIntervalId;
+
+        function generateBinaryString(length) {
+            let s = '';
+            for (let i = 0; i < length; i++) {
+                s += Math.random() < 0.5 ? '0 ' : '1 ';
+            }
+            return s;
+        }
+
+        function setupRain() {
+            rainCanvas.width = gameContainer.clientWidth;
+            rainCanvas.height = gameContainer.clientHeight;
+            
+            columns = Math.floor(rainCanvas.width / rainFontSize);
+            
+            drops = [];
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.floor(Math.random() * rainCanvas.height / rainFontSize);
+            }
+        }
+
+        function drawRain() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, rainCanvas.width, rainCanvas.height);
+            
+            ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-neon-green');
+            ctx.font = rainFontSize + 'px monospace';
+            
+            for (let i = 0; i < drops.length; i++) {
+                const text = charSet[Math.floor(Math.random() * charSet.length)];
+                ctx.fillText(text, i * rainFontSize, drops[i] * rainFontSize);
+                drops[i]++;
+
+                if (drops[i] * rainFontSize > rainCanvas.height && Math.random() > 0.97) {
+                    drops[i] = 0;
+                }
+            }
+        }
+
+        window.addEventListener('resize', setupRain);
+
+        function applyLevelSettings(level) {
+            const settings = LEVEL_SETTINGS[level - 1];
+            if (!settings) return;
+
+            gameSpeed = settings.initialSpeed;
+            spawnInterval = settings.spawnInterval;
+            score = 0;
+            traceLevel = 0;
+            velocityY = 0;
+            isJumping = false;
+            isDucking = false;
+
+            scoreDisplay.textContent = '0';
+            scoreGoalDisplay.textContent = settings.scoreGoal;
+            levelNameDisplay.textContent = settings.title;
+            traceBar.style.width = '0%';
+            
+            hacker.style.bottom = runwayHeight + 'px';
+            hacker.style.transform = '';
+            hacker.classList.remove('ducking');
+
+            document.documentElement.style.setProperty('--color-neon-green', settings.themeColor);
+            document.documentElement.style.setProperty('--color-neon-blue', settings.themeColor);
+            
+            traceBar.style.background = `linear-gradient(90deg, ${settings.themeColor} 0%, var(--color-alarm-red) 100%)`;
+
+            const levelBackground = document.getElementById('level-background');
+            levelBackground.className = `level-bg level-${level}-bg`;
+            
+            document.querySelectorAll('.obstacle').forEach(obs => obs.remove());
+        }
+
+        function gameLoop(timestamp) {
+            if (!isPlaying) return;
+
+            const currentGoal = LEVEL_SETTINGS[currentLevel - 1].scoreGoal;
+            if (score >= currentGoal) {
+                if (currentLevel >= LEVEL_SETTINGS.length) {
+                    endGame(true);
+                    return;
+                } else {
+                    levelUp();
+                    return;
+                }
+            }
+
+            document.querySelectorAll('.obstacle').forEach(obstacle => {
+                let currentRight = parseFloat(obstacle.style.right) || 0;
+                let newRight = currentRight + gameSpeed;
+                obstacle.style.right = newRight + 'px';
+
+                if (newRight > gameContainer.clientWidth) {
+                    obstacle.remove();
+                    score += 10;
+                    scoreDisplay.textContent = score;
+
+                    const settings = LEVEL_SETTINGS[currentLevel - 1];
+                    gameSpeed = Math.min(gameSpeed + 0.02, settings.maxSpeed);
+                }
+
+                checkCollision(obstacle);
+            });
+
+            if (isJumping) {
+                let currentBottom = parseFloat(hacker.style.bottom) || runwayHeight;
+                currentBottom += velocityY;
+                velocityY -= gravity;
+
+                if (currentBottom <= runwayHeight) {
+                    currentBottom = runwayHeight;
+                    isJumping = false;
+                    hacker.style.transform = '';
+                    velocityY = 0;
+                }
+                hacker.style.bottom = currentBottom + 'px';
+            }
+            
+            const delta = LEVEL_SETTINGS[currentLevel - 1].traceDelta;
+            updateTraceLevel(delta);
+
+            if (timestamp - lastSpawnTime > spawnInterval) {
+                spawnObstacle();
+                lastSpawnTime = timestamp;
+                
+                const settings = LEVEL_SETTINGS[currentLevel - 1];
+                spawnInterval = Math.max(spawnInterval - 5, settings.minSpawnInterval);
+            }
+
+            binaryScrollPos += visualSpeed;
+            if (binaryScrollPos >= binaryStripWidth) {
+                binaryScrollPos -= binaryStripWidth;
+            }
+            binaryStrip.style.transform = `translateX(-${binaryScrollPos}px)`;
+
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function levelUp() {
+            isPlaying = false;
+            cancelAnimationFrame(gameLoopId);
+            
+            document.querySelectorAll('.obstacle').forEach(obs => obs.remove());
+            
+            const nextLevel = currentLevel + 1;
+            const nextSettings = LEVEL_SETTINGS[nextLevel - 1];
+
+            showMessage(
+                `第 ${currentLevel} 關解密完成！`,
+                `您已成功滲透 ${LEVEL_SETTINGS[currentLevel - 1].title}。準備進入下一關：${nextSettings.title}`,
+                '去完成任務吧或許她會回來(Continue)',
+                nextSettings.themeColor,
+                () => {
+                    currentLevel = nextLevel;
+                    score = 0;
+                    traceLevel = 0;
+                    gameSpeed = nextSettings.initialSpeed;
+                    spawnInterval = nextSettings.spawnInterval;
+                    applyLevelSettings(currentLevel);
+                    messageBox.classList.add('hidden');
+                    messageBox.classList.remove('flex');
+                    isPlaying = true;
+                    startGameLoop();
+                }
+            );
+        }
+
+        function spawnObstacle() {
+            const type = Math.random() < 0.6 ? 'firewall' : 'virus';
+
+            const obstacle = document.createElement('div');
+            obstacle.classList.add('obstacle', type);
+            obstacle.style.right = '0px';
+
+            if (type === 'firewall') {
+                obstacle.classList.add('firewall');
+            } else {
+                obstacle.classList.add('virus');
+                obstacle.style.bottom = (runwayHeight + 60 + Math.random() * 40) + 'px';
+            }
+
+            gameContainer.appendChild(obstacle);
+        }
+
+        function checkCollision(obstacle) {
+            const hackerRect = hacker.getBoundingClientRect();
+            const obstacleRect = obstacle.getBoundingClientRect();
+            const hackerHeight = isDucking ? 30 : 60;
+
+            if (
+                hackerRect.left < obstacleRect.right &&
+                hackerRect.right > obstacleRect.left &&
+                hackerRect.bottom > obstacleRect.top &&
+                hackerRect.bottom - hackerHeight < obstacleRect.bottom
+            ) {
+                updateTraceLevel(30);
+                hacker.style.backgroundColor = 'var(--color-alarm-red)';
+                setTimeout(() => {
+                    hacker.style.backgroundColor = 'var(--color-neon-blue)';
+                }, 200);
+            }
+        }
+
+        function updateTraceLevel(delta) {
+            traceLevel = Math.max(0, Math.min(100, traceLevel + delta));
+            traceBar.style.width = traceLevel + '%';
+
+            if (traceLevel >= 100) {
+                endGame(false);
+            }
+        }
+
+        function endGame(isWin) {
+            isPlaying = false;
+            cancelAnimationFrame(gameLoopId);
+            if (rainIntervalId) clearInterval(rainIntervalId);
+
+            document.querySelectorAll('.obstacle').forEach(obs => obs.remove());
+
+            let title, content, color;
+            
+            if (isWin) {
+                title = "最終拿到flag，她或許會回來吧+_+";
+                content = `恭喜您，您已成功通關所有關卡！去完成你的資安夢想吧ψ(｀∇´)ψ 總分: ${score}`;
+                color = LEVEL_SETTINGS[0].themeColor;
+            } else {
+                const settings = LEVEL_SETTINGS[currentLevel - 1];
+                title = settings.failTitle;
+                content = `在 ${settings.title} 這簡單的關卡，都可以過不了 難怪他跟你分手。您的最終分數: ${score}`;
+                color = 'var(--color-alarm-red)';
+            }
+
+            showMessage(
+                title,
+                content,
+                isWin ? '重新開始' : '重新嘗試',
+                color,
+                () => {
+                    currentLevel = 1;
+                    score = 0;
+                    traceLevel = 0;
+                    applyLevelSettings(currentLevel);
+                    messageBox.classList.add('hidden');
+                    messageBox.classList.remove('flex');
+                    isPlaying = true;
+                    startGameLoop();
+                }
+            );
+        }
+
+        function showMessage(title, content, buttonText, borderColor, actionCallback) {
+            const titleElement = document.getElementById('message-title');
+            const contentElement = document.getElementById('message-content');
+            const boxElement = messageBox.querySelector('div');
+            
+            titleElement.textContent = title;
+            contentElement.textContent = content;
+            messageActionButton.textContent = buttonText;
+            messageActionButton.onclick = actionCallback;
+
+            boxElement.style.borderColor = borderColor;
+            titleElement.style.color = borderColor;
+            messageActionButton.style.backgroundColor = borderColor;
+            messageActionButton.style.color = 'var(--color-dark-bg)';
+            
+            messageBox.classList.remove('hidden');
+            messageBox.classList.add('flex');
+        }
+
+        function handleInput(e) {
+            if (!isPlaying) return;
+
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (!isJumping) {
+                    isJumping = true;
+                    velocityY = JUMP_VELOCITY;
+                }
+            } else if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                if (!isJumping && !isDucking) {
+                    hacker.classList.add('ducking');
+                    isDucking = true;
+                }
+            }
+        }
+
+        function handleInputRelease(e) {
+            if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                if (isDucking) {
+                    hacker.classList.remove('ducking');
+                    isDucking = false;
+                }
+            }
+        }
+
+        function startGameLoop() {
+            isPlaying = true;
+            startButton.style.display = 'none';
+
+            const binaryLength = 200;
+            const binaryContent = generateBinaryString(binaryLength);
+            binaryStrip.textContent = binaryContent + binaryContent;
+            binaryScrollPos = 0;
+            binaryStripWidth = binaryStrip.scrollWidth / 2;
+
+            setupRain();
+            if (rainIntervalId) clearInterval(rainIntervalId);
+            rainIntervalId = setInterval(drawRain, rainSpeed);
+            
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            currentLevel = 1;
+            applyLevelSettings(currentLevel);
+
+            const resizeObserver = new ResizeObserver(() => {
+                setupRain();
+                const levelBackground = document.getElementById('level-background');
+                if (levelBackground) {
+                    levelBackground.style.height = `${gameContainer.clientHeight}px`;
+                }
+            });
+            resizeObserver.observe(gameContainer);
+
+            startButton.textContent = `開始爆破flag (目標: ${LEVEL_SETTINGS[0].scoreGoal} 獲取flag)`;
+            hacker.style.bottom = runwayHeight + 'px';
+            setupRain();
+        };
+        
+        startButton.addEventListener('click', startGameLoop);
+        document.addEventListener('keydown', handleInput);
+        document.addEventListener('keyup', handleInputRelease);
+    </script>
+</body>
+</html>
